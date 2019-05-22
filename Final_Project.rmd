@@ -1,0 +1,296 @@
+---
+title: "Final_Project"
+author: "Benjamin Salzberg"
+date: "May 19, 2019"
+output: html_document
+---
+
+```{r setup}
+library(tidyverse)
+library(stringr)
+library(knitr)
+library(pracma)
+All_Education_Data <- read_csv("states_all.csv")
+```
+These are the libraries and datasets that we will be making use of. Tidyverse is a very useful library, it makes if far easier to manipulate data. stringr allows us to easily interact with strings, which most data is. knitr also allows for easier data manipulation. Finally, pracma provides the strcmp() function, which allows for easy comparison for strings as == is incorrect when dealing with them. 
+<hr>
+```{r display_all_data}
+All_Education_Data
+```
+This is our dataset, 1492 entries for states over different years, it records the number of students enrolled, the revenue and expenditure, and the number of people in each grade. However, there is some missing data for several of these datasets, this will effect how we can use the data. 
+<hr>
+This is how the data is divided, each column is described here for reference.  
+<br><br>
+PRIMARY_KEY = the primary key, a combination of YEAR and STATE<br>
+STATE = the state being represented<br>
+YEAR = the year the data is from<br><hr>
+ENROLL = the number who enrolled in school<br><hr>
+TOTAL_REVENUE = amount of money made for state, federal+state+local<br>
+FEDERAL_REVENUE = federal revenue<br>
+STATE_REVENUE = state revenue<br>
+LOCAL_REVENUE = local revenue<br><hr>
+TOTAL_EXPENDITURE = Total state spent<br>
+INSTRUCTION_EXPENDITURE = amount spent on instruction<br>
+SUPPORT_SERVICES_EXPENDITURE = amount spent on support services<br>
+OTHER_EXPENDITURE = amount spent on other things <br>
+CAPITAL_OUTLAY_EXPENDITURE = money spent to repair or replace assets <br><hr>
+GRADES_PK_G = Number of students in Pre-Kindergarten education <br>
+GRADES_KG_G = Number of students in Kindergarten through twelfth grade. <br>
+GRADES_4_G = Number of students in fourth grade.<br>
+GRADES_8_G = Number of students in eighth grade.<br>
+GRADES_12_G = Number of students in twelfth grade.<br>
+GRADES_1_8_G = Number of students in the first through eighth grades.<br>
+GRADES_9_12_G = Number of students in the ninth through twelfth grades.<br>
+GRADES_ALL_G = The count of all students in the state. Comparable to ENROLL in the financial data (which is the U.S. Census Bureau's estimate for students in the state). <br><hr>
+AVG_MATH_4_SCORE = The state's average score for fourth graders taking the NAEP math exam.<br>
+AVG_MATH_8_SCORE = The state's average score for eight graders taking the NAEP math exam.<br>
+AVG_READING_4_SCORE = The state's average score for fourth graders taking the NAEP reading exam.<br>
+AVG_READING_8_SCORE = The state's average score for eighth graders taking the NAEP reading exam.<br>
+<hr>
+We first need to define the timespan that we should be looking at which is <b>1995-2015</b>. We also need to ensure that we are looking at the same data for every year, in this case, only the data from individual states instead of various other groups who reported data in this dataset. 
+```{r Data_Curation}
+# We start by setting the limits of the years. We then remove everything that is not one of the 50 states.   
+Education_Data <- All_Education_Data %>% 
+  filter(YEAR >= 1995 & YEAR <= 2015) %>%
+  filter(STATE != "AMERICAN_SAMOA" & STATE != "AS" & STATE != "BI" & STATE != "BIE" & STATE!="BUREAU_OF_INDIAN_AFFAIRS"&STATE!="BUREAU_OF_INDIAN_EDUCATIO"&STATE!="BUREAU_OF_INDIAN_EDUCATION"&STATE!="COMMONWEALTH_OF_MARIANAS"&STATE!="DD"&STATE!="DOD"&STATE!="DOD_-_DOMESTIC"&STATE!="DOD_-_FOREIGN"&STATE!="DOD_-_OVERSEAS"&STATE!="DOD_(OVERSEAS_AND_DOMESTIC_COMBINED)"&STATE!="DOD_DOMESTIC"&STATE!="DOD_OVERSEAS"&STATE!="GU"&STATE!="GUAM"&STATE!="MP"&STATE!="PR"&STATE!="VI"&STATE!="VIRGIN_ISLANDS"&STATE!="NORTHERN_MARIANAS"&STATE!="PUERTO_RICO"&STATE!="DISTRICT_OF_COLUMBIA"&STATE!="DEPARTMENT_OF_DEFENSE"&STATE!="DEPARTMENT_OF_DEFENSE_EDUCATION_ACTIVITY"&STATE!="NORTHERN_MARIANA_ISLANDS"&STATE!="U.S._VIRGIN_ISLANDS")
+Education_Data
+```
+<hr>
+We have a problem here, There are 1052 rows, which is 2 extra than what should be in there. This means we need to find where the error is. This can be done by looking at every state and seeing where the extra data is. We will do this by using a function defined below. 
+```{r find_extra}
+# first get the values that can be the same, this gives us a list. 
+keys <- Education_Data$PRIMARY_KEY
+# then make a function that finds which values are the same
+find_doubles <- function(lst) 
+{
+  c = ""
+  lst
+  integer = 0
+  for (a in lst) {
+    integer = 0
+    for (b in lst) {
+      if (strcmp(a, b)){
+        integer = integer + 1
+      }
+    }
+    if (integer > 1)
+    {
+      c = a
+    }
+  }
+  c
+}
+#running the function gives us the answer. 
+keys %>% find_doubles()
+```
+The above function called find doubles is an R function. This function takes a single list or column. It then makes use of a pair of for each loops. it then counts the number of occurences of each element in the list. The comparison occurs in strcmp, which is abstracted out comparison of strings. for each occurnece it increases the variable integer by 1. and if it is larger than 1 it returns that value. 
+<br>
+And we now have our answer, the duplicates are in 2008_VIRGINIA, now we must remove them. 
+<hr>
+```{R remove_extra}
+Virginia_Extra <- Education_Data %>%
+  filter(YEAR==2008&STATE =="VIRGINIA")
+
+newGRADE_PK_G = sum(Virginia_Extra$GRADES_PK_G)
+newGRADES_KG_G = sum(Virginia_Extra$GRADES_KG_G)
+newGRADES_4_G = sum(Virginia_Extra$GRADES_4_G)
+newGRADES_8_G = sum(Virginia_Extra$GRADES_8_G)
+newGRADES_12_G = sum(Virginia_Extra$GRADES_12_G)
+newGRADES_1_8_G = sum(Virginia_Extra$GRADES_1_8_G)
+newGRADES_9_12_G = sum(Virginia_Extra$GRADES_9_12_G)
+newGRADES_ALL_G = sum(Virginia_Extra$GRADES_ALL_G)
+newRow = data.frame(PRIMARY_KEY = "2008_VIRGINIA", STATE = "VIRGINIA", YEAR = 2008, ENROLL = 1230857, TOTAL_REVENUE = 14768120, FEDERAL_REVENUE = 897627, STATE_REVENUE = 5957786, LOCAL_REVENUE = 7912707, TOTAL_EXPENDITURE = 15236306, INSTRUCTION_EXPENDITURE = 8003167, SUPPORT_SERVICES_EXPENDITURE = 4645375, OTHER_EXPENDITURE = 555074, CAPITAL_OUTLAY_EXPENDITURE = 1528769, GRADES_PK_G = newGRADE_PK_G, GRADES_KG_G = newGRADES_KG_G, GRADES_4_G = newGRADES_4_G, GRADES_8_G = newGRADES_8_G, GRADES_12_G = newGRADES_12_G, GRADES_1_8_G = newGRADES_1_8_G, GRADES_9_12_G = newGRADES_9_12_G, GRADES_ALL_G = newGRADES_ALL_G, AVG_MATH_4_SCORE = NA, AVG_MATH_8_SCORE = NA, AVG_READING_4_SCORE = NA, AVG_READING_8_SCORE = NA)
+
+Education_Data<-Education_Data %>% 
+  filter(PRIMARY_KEY!="2008_VIRGINIA") %>% 
+  rbind(newRow)
+Education_Data
+```
+<hr>
+We do this by first taking the values that are the same in each. we then add the values that are different for each column using the sum function. The NA values are there because that year is entirely NA.  
+<br>
+Now that they are gone, we can look at the data. We will first look at the total expenditure vs year, the enrollment per year, and enrollment vs total expenditure.  
+<hr>
+```{r data1}
+plot1 <- Education_Data %>% 
+  ggplot(mapping=aes(y=TOTAL_EXPENDITURE, x=YEAR)) +
+    geom_point()
+plot1
+```
+```{r data2}
+plot2 <- Education_Data %>% 
+  ggplot(mapping=aes(y=ENROLL, x=YEAR)) +
+    geom_point()
+plot2
+```
+```{r data3}
+plot2 <- Education_Data %>% 
+  ggplot(mapping=aes(y=ENROLL, x=TOTAL_EXPENDITURE)) +
+    geom_point()
+plot2
+```
+<hr>
+All we see is a great deal of data, we can't even really see general trends, it tells us very little. as such we should look at labeling everything. 
+
+<hr>
+```{r Expend_analysis}
+Expend_plot <- Education_Data %>% 
+  filter(STATE == "MARYLAND" | STATE == "CALIFORNIA" | STATE == "NEW_YORK" | STATE == "ALABAMA" | STATE == "NORTH_DAKOTA") %>%
+  group_by(STATE, YEAR) %>%
+  ggplot(mapping=aes(y=TOTAL_EXPENDITURE, x=YEAR, color = STATE)) +
+    geom_point()
+Expend_plot
+```
+
+```{r Enroll_analysis}
+Expend_plot <- Education_Data %>% 
+  filter(STATE == "MARYLAND" | STATE == "CALIFORNIA" | STATE == "NEW_YORK" | STATE == "ALABAMA" | STATE == "NORTH_DAKOTA") %>%
+  group_by(STATE, YEAR) %>%
+  ggplot(mapping=aes(y=ENROLL, x=YEAR, color = STATE)) +
+    geom_point()
+Expend_plot
+```
+<hr>
+This shows us each one differently. and lets us compare visually these graphs. Note that we only use 5 states because all of them would have overwhelmed the graph hiding a great deal data. <br><br>
+We can also look at expenditure and revenue for each year. 
+<hr>
+```{r values}
+plot3 <- Education_Data %>%
+  group_by(STATE, YEAR) %>%
+  summarise(profit = TOTAL_REVENUE - TOTAL_EXPENDITURE)
+plot3 %>% 
+  ggplot(mapping=aes(y=profit, x=YEAR)) +
+    geom_point()
+```
+<hr>
+What if we wanted to know the largest and smallest profits for each year. 
+<hr>
+```{r largest}
+calc_largest <- Education_Data %>%
+  group_by(STATE, YEAR) %>%
+  summarise(profit = TOTAL_REVENUE - TOTAL_EXPENDITURE) %>%
+  group_by(STATE) %>%
+  summarise(max = max(profit))
+calc_largest %>% 
+  ggplot(mapping=aes(y=max, x=STATE)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+```
+```{r smallest}
+calc_smallest <- Education_Data %>%
+  group_by(STATE, YEAR) %>%
+  summarise(profit = TOTAL_REVENUE - TOTAL_EXPENDITURE) %>%
+  group_by(STATE) %>%
+  summarise(min = min(profit))
+calc_smallest %>% 
+  ggplot(mapping=aes(y=min, x=STATE)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+```
+<hr>
+We get to see the maximum and minimum profits for each state over the 15 year period we looked at. These tell us th limits, and show us outliers. because we are dealing with such large values it is not very legible if you want exact values, however, it does show us relative data marks. If we were to discover the largest profit for everyone, and the smallest possible we will look below. <hr>
+```{r largeandsmall}
+calc_largest %>%
+  summarize(MAXIMUM=max(max))
+calc_smallest %>%
+  summarize(MINIMUM=min(min))
+```
+<hr>
+This gives us the maximum and minimum values as data frames. 
+<br>
+lets take a look at number of students enrolled vs how much money was spent on education each year. ENROLL VS TOTAL_EXPENDITURE
+<br>
+We want to use violin plots to take a look at the total expenditures for each year. we use this instead of scatter plots to allow us to see how the scatterplot would have been arrayed and show relatively how many are at each point rather than just seeing a mass as is shown above.  we use the mutate and cut functions to divide into each year. we then group by the state and the newly generated cols value that tells us where , we then summarise to find the values. we use the theme to turn thevalues on the side, to make them readable. 
+<hr>
+```{r analysis}
+plotyear1 <- Education_Data %>% 
+  filter(YEAR >= 2010) %>%
+  mutate(cols = cut(YEAR, breaks = 5)) %>%
+  group_by(STATE, cols) %>%
+  summarise(ENROLL = mean(ENROLL), TOTAL_EXPENDITURE=mean(TOTAL_EXPENDITURE))%>%
+  ggplot(mapping=aes(y=ENROLL, x=TOTAL_EXPENDITURE)) +
+    geom_violin() +
+    facet_grid(~cols)+ 
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+plotyear2 <- Education_Data %>% 
+  filter(YEAR <= 2010 & YEAR >=2005) %>%
+  mutate(cols = cut(YEAR, breaks = 5)) %>%
+  group_by(STATE, cols) %>%
+  summarise(ENROLL = mean(ENROLL), TOTAL_EXPENDITURE=mean(TOTAL_EXPENDITURE))%>%
+  ggplot(mapping=aes(y=ENROLL, x=TOTAL_EXPENDITURE)) +
+    geom_violin() +
+    facet_grid(~cols)+ 
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+plotyear3 <- Education_Data %>% 
+  filter(YEAR <=2004) %>%
+  mutate(cols = cut(YEAR, breaks = 5)) %>%
+  group_by(STATE, cols) %>%
+  summarise(ENROLL = mean(ENROLL), TOTAL_EXPENDITURE=mean(TOTAL_EXPENDITURE))%>%
+  ggplot(mapping=aes(y=ENROLL, x=TOTAL_EXPENDITURE)) +
+    geom_violin() +
+    facet_grid(~cols)+ 
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+```
+```{r years1}
+plotyear3
+```
+```{r years2}
+plotyear2
+```
+```{r years3}
+plotyear1
+```
+<hr>These Violin plots give us a good idea of how the values are grouped. we can see some clear outliers for enrollment, but not as many as for total expenditure. 
+<hr>
+<hr>
+But what if we wanted to predict data we do not yet know. we can use linear regression for that. 
+<br>
+We will first 
+<hr>
+```{r linear_regression}
+profit_data <- plot3 %>%
+  filter(STATE == "MARYLAND" | STATE == "CALIFORNIA" | STATE == "NEW_YORK" | STATE == "ALABAMA" | STATE == "NORTH_DAKOTA")
+regression <- broom::tidy(lm(profit~YEAR+STATE, profit_data))
+regression
+```
+<hr>
+This is showing us the data, the intercept, it then tells us about the estimate for each state, the base is Alabama. and increases or decreases depending on state exist for each. 
+<hr>
+```{r regression1}
+profit_data %>% 
+  ggplot(mapping=aes(y=profit, x=YEAR, color = STATE)) +
+    geom_point() + 
+    geom_smooth(method = lm)
+```
+<hr>
+this a a graph of the above data, for some states, there are enourmous error lines for several states because of the profit outliers for each year. there are others where the error bars are very small, this is because the linear regression is very accurate for each value. Below is the data not seperated by state, and further below that is for all the data in the dataset. 
+<hr>
+```{r regression2}
+profit_data %>% 
+  ggplot(mapping=aes(y=profit, x=YEAR)) +
+    geom_point() + 
+    geom_smooth(method = lm)
+```
+
+```{r regression3}
+plot3 %>% 
+  ggplot(mapping=aes(y=profit, x=YEAR)) +
+    geom_point() + 
+    geom_smooth(method = lm)
+```
+
+<br>
+<hr>
+This represents the education of people in several states. It records for each year, the number of student enrolled, the amount of money given to them, divided into federal state and local revenue. It also contains the expenditures of the state per year divided into instruction, support services, capital outlay, and other expenditures. Instruction is spending on paying for the instruction of students, support service expenditures are the payments for supporting systems, capital outlay is the spending on replacing or repairing uses, and all other spending is recorded in the other spending value. It also records the number of students enrolled in different grades and it also records the average grades of several tests that are taken every few years. However, there is a great deal of missing data, both in years when the tests were taken, and for every year they were not taken. 
+<br>
+The data gives us a great deal of information about each state over time. this lets us analyze how much each state makes each year, and compare that to other states. unfortunately because of the missing data for the grades we cannot compare the profits each state makes to the grades of students. However, it can be compared to see how they change over time, and preferably should be increasing each year, both to keep up with inflation and the increasing in enrollment by students. 
+<br>
+This analysis of data tells us that there is a general trend down. however, there are some individuals that are increasing. 
+
+
+
+
+
+
+
+
